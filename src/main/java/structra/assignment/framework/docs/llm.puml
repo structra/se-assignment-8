@@ -1,0 +1,101 @@
+@startuml llm.puml
+
+interface QuestionProvider {
+    + next(): CompletableFuture<Question<?>>
+    + hasNext(): boolean
+    + reset(): void
+    + getMaxProvisions(): int
+}
+
+class ModelQuestionProvider {
+    - final model: MachineLearningModel<String, String>
+    - final targetProvider: TargetProvider
+    + postProcessModelOutput(response: String): String
+}
+
+interface QuestionGenerationTarget<T extends Question<?>> {
+    + parse(input: String): T
+    + getTargetContext(): String
+}
+
+class OpenQuestionTarget {
+    + parse(input: String): OpenAnswerQuestion
+    + getTargetContext(): String
+    - constructAnswerData(input: String): AnswerData
+    - constructQuestionData(input: String): QuestionData
+    - createErrorQuestion(): OpenAnswerQuestion
+}
+
+class MultipleChoiceQuestionTarget {
+    // TODO implement this
+}
+
+interface SystemContext {
+    + getSpecification(): String
+}
+
+enum OpenQuestionContext {
+    + getSpecification(): String
+}
+
+enum MultipleChoiceQuestionContext {
+    // TODO implement this
+}
+
+class SystemContextBuilder {
+    + addRawContext(rawPrompt: String): void
+    + addContext(specification: SystemContext): void
+    + build(): String
+}
+
+interface MachineLearningModel<I, O> {
+    + setContext(systemContext: String): void
+    + execute(prompt: I): CompletableFuture<O>
+}
+
+class ChatGPTModel {
+    + setContext(systemContext: String): void
+    + execute(prompt: String): CompletableFuture<String>
+}
+
+class Mimic {
+    + setContext(systemContext: String): void
+    + execute(prompt: String): CompletableFuture<String>
+}
+
+interface TargetProvider {
+    + provide: QuestionGenerationTarget<?>
+}
+
+class RandomTargetProvider {
+    + provide: QuestionGenerationTarget<?>
+}
+
+class QuizzMaker {
+    - BOOLEAN_ANSWER_FACTORY: BooleanAnswerFactory
+    - TEXT_ANSWER_FACTORY: TextAnswerFactory
+    - OPEN_ANSWER_QUESTION_FACTORY: OpenAnswerQuestionFactory
+    - MULTI_CHECK_BOX_QUESTION_FACTORY: MultiCheckBoxQuestionFactory
+    + createAnswer(data: AnswerData): Answer<?>
+    + createQuestion(data: QuestionData): Question<?>
+}
+
+TargetProvider <|-- RandomTargetProvider : Implements
+QuestionProvider <|-- ModelQuestionProvider : Implements
+QuestionGenerationTarget <|-- OpenQuestionTarget : Implements
+MachineLearningModel --> ChatGPTModel : Implements
+MachineLearningModel --> Mimic : Implements
+QuestionGenerationTarget <|-- MultipleChoiceQuestionTarget : Implements
+SystemContext <|-- MultipleChoiceQuestionContext : Implements
+SystemContext <|-- OpenQuestionContext : Implements
+
+SystemContextBuilder --> SystemContext : Uses
+MachineLearningModel --> SystemContextBuilder : Easier to set context with
+ModelQuestionProvider --> RandomTargetProvider : gets question generation target
+ModelQuestionProvider --> MachineLearningModel : gets JSON response
+ModelQuestionProvider --> QuestionGenerationTarget : generates target questions using
+OpenQuestionTarget --> QuizzMaker : creates concrete questions using
+MultipleChoiceQuestionTarget --> QuizzMaker : creates concrete questions using
+
+
+@enduml
